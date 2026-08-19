@@ -6,6 +6,9 @@ ARG DATABASE_URL
 WORKDIR /calcom
 
 RUN set -eux;
+# Toolchain para modulos nativos (deasync, sharp, sqlite3...): alpine compila
+# desde fuente porque musl no usa los prebuilds de npm.
+RUN apk add --no-cache python3 make g++ libc6-compat
 RUN ln -s /usr/lib/libssl.so.3 /lib/libssl.so.3
 
 ENV NODE_ENV="production"
