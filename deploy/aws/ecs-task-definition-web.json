@@ -1,0 +1,41 @@
+{
+  "family": "caldiy-web",
+  "requiresCompatibilities": ["FARGATE"],
+  "networkMode": "awsvpc",
+  "cpu": "2048",
+  "memory": "4096",
+  "runtimePlatform": { "cpuArchitecture": "ARM64", "operatingSystemFamily": "LINUX" },
+  "executionRoleArn": "arn:aws:iam::786016560200:role/caldiyTaskExecutionRole",
+  "containerDefinitions": [
+    {
+      "name": "web",
+      "image": "PLACEHOLDER_SET_BY_CI",
+      "essential": true,
+      "portMappings": [{ "containerPort": 3000, "protocol": "tcp" }],
+      "environment": [
+        { "name": "NODE_ENV", "value": "production" },
+        { "name": "NEXT_PUBLIC_WEBAPP_URL", "value": "https://calendar.sigea.ai" },
+        { "name": "NEXTAUTH_URL", "value": "https://calendar.sigea.ai" },
+        { "name": "NEXT_PUBLIC_API_V2_URL", "value": "https://calendar.sigea.ai/api/v2" },
+        { "name": "DATABASE_HOST", "value": "caldiy-db.c32wwg0gc94l.us-west-2.rds.amazonaws.com:5432" },
+        { "name": "CALCOM_TELEMETRY_DISABLED", "value": "1" },
+        { "name": "NEXT_PUBLIC_LICENSE_CONSENT", "value": "agree" }
+      ],
+      "secrets": [
+        { "name": "DATABASE_URL",            "valueFrom": "arn:aws:secretsmanager:us-west-2:786016560200:secret:caldiy/DATABASE_URL" },
+        { "name": "DATABASE_DIRECT_URL",     "valueFrom": "arn:aws:secretsmanager:us-west-2:786016560200:secret:caldiy/DATABASE_URL" },
+        { "name": "NEXTAUTH_SECRET",         "valueFrom": "arn:aws:secretsmanager:us-west-2:786016560200:secret:caldiy/NEXTAUTH_SECRET" },
+        { "name": "CALENDSO_ENCRYPTION_KEY", "valueFrom": "arn:aws:secretsmanager:us-west-2:786016560200:secret:caldiy/CALENDSO_ENCRYPTION_KEY" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/caldiy-web",
+          "awslogs-region": "us-west-2",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "stopTimeout": 30
+    }
+  ]
+}

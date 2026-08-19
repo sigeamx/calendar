@@ -1,0 +1,99 @@
+name: Deploy a ECS (cal.diy)
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["**/*.md", "docs/**"]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-ecs-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  id-token: write    # OIDC: sin llaves de AWS guardadas en GitHub
+  contents: read
+
+env:
+  AWS_REGION: us-west-2
+  ECS_CLUSTER: caldiy
+  ROLE: arn:aws:iam::786016560200:role/github-actions-caldiy-deploy
+
+jobs:
+  deploy:
+    # runner ARM nativo (gratis en repos publicos): build sin emulacion QEMU
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - component: web
+            dockerfile: Dockerfile
+            ecr: caldiy-web
+            service: caldiy-web
+            container: web
+            taskdef: deploy/aws/ecs-task-definition-web.json
+          - component: api
+            dockerfile: apps/api/v2/Dockerfile
+            ecr: caldiy-api
+            service: caldiy-api
+            container: api
+            taskdef: deploy/aws/ecs-task-definition-api.json
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # El build de cal.com llena los ~14 GB del runner
+      - name: Liberar disco
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+                      /usr/local/share/boost "${AGENT_TOOLSDIRECTORY:-}" || true
+          df -h /
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.ROLE }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build y push (${{ matrix.component }})
+        id: build
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+        run: |
+          IMAGE="$REGISTRY/${{ matrix.ecr }}:${{ github.sha }}"
+          docker buildx build \
+            --platform linux/arm64 \
+            --file "${{ matrix.dockerfile }}" \
+            --build-arg NEXT_PUBLIC_WEBAPP_URL="${{ vars.WEBAPP_URL }}" \
+            --build-arg NEXT_PUBLIC_API_V2_URL="${{ vars.WEBAPP_URL }}/api/v2" \
+            --build-arg CALCOM_TELEMETRY_DISABLED=1 \
+            --build-arg NEXT_PUBLIC_LICENSE_CONSENT=agree \
+            --build-arg DATABASE_URL="postgresql://build:build@localhost:5432/build" \
+            --cache-from type=registry,ref=$REGISTRY/${{ matrix.ecr }}:buildcache \
+            --cache-to   type=registry,ref=$REGISTRY/${{ matrix.ecr }}:buildcache,mode=max \
+            -t "$IMAGE" -t "$REGISTRY/${{ matrix.ecr }}:latest" \
+            --push .
+          echo "image=$IMAGE" >> $GITHUB_OUTPUT
+
+      - name: Render task definition
+        id: taskdef
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: ${{ matrix.taskdef }}
+          container-name: ${{ matrix.container }}
+          image: ${{ steps.build.outputs.image }}
+
+      - name: Deploy al servicio ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.taskdef.outputs.task-definition }}
+          service: ${{ matrix.service }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true
+          wait-for-minutes: 30
