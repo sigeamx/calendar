@@ -1,0 +1,45 @@
+{
+  "family": "caldiy-api",
+  "requiresCompatibilities": ["FARGATE"],
+  "networkMode": "awsvpc",
+  "cpu": "1024",
+  "memory": "2048",
+  "runtimePlatform": { "cpuArchitecture": "ARM64", "operatingSystemFamily": "LINUX" },
+  "executionRoleArn": "arn:aws:iam::786016560200:role/caldiyTaskExecutionRole",
+  "containerDefinitions": [
+    {
+      "name": "api",
+      "image": "PLACEHOLDER_SET_BY_CI",
+      "essential": true,
+      "portMappings": [{ "containerPort": 80, "protocol": "tcp" }],
+      "environment": [
+        { "name": "NODE_ENV", "value": "production" },
+        { "name": "API_PORT", "value": "80" },
+        { "name": "API_KEY_PREFIX", "value": "cal_" },
+        { "name": "WEB_APP_URL", "value": "https://calendar.sigea.ai" },
+        { "name": "IS_E2E", "value": "false" },
+        { "name": "REWRITE_API_V2_PREFIX", "value": "true" }
+      ],
+      "secrets": [
+        { "name": "DATABASE_URL",         "valueFrom": "arn:aws:secretsmanager:us-west-2:786016560200:secret:caldiy/DATABASE_URL" },
+        { "name": "DATABASE_READ_URL",    "valueFrom": "arn:aws:secretsmanager:us-west-2:786016560200:secret:caldiy/DATABASE_URL" },
+        { "name": "DATABASE_WRITE_URL",   "valueFrom": "arn:aws:secretsmanager:us-west-2:786016560200:secret:caldiy/DATABASE_URL" },
+        { "name": "DATABASE_DIRECT_URL",  "valueFrom": "arn:aws:secretsmanager:us-west-2:786016560200:secret:caldiy/DATABASE_URL" },
+        { "name": "NEXTAUTH_SECRET",      "valueFrom": "arn:aws:secretsmanager:us-west-2:786016560200:secret:caldiy/NEXTAUTH_SECRET" },
+        { "name": "JWT_SECRET",           "valueFrom": "arn:aws:secretsmanager:us-west-2:786016560200:secret:caldiy/JWT_SECRET" },
+        { "name": "REDIS_URL",            "valueFrom": "arn:aws:secretsmanager:us-west-2:786016560200:secret:caldiy/REDIS_URL" },
+        { "name": "STRIPE_API_KEY",       "valueFrom": "arn:aws:secretsmanager:us-west-2:786016560200:secret:caldiy/STRIPE_API_KEY" },
+        { "name": "STRIPE_WEBHOOK_SECRET","valueFrom": "arn:aws:secretsmanager:us-west-2:786016560200:secret:caldiy/STRIPE_WEBHOOK_SECRET" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/caldiy-api",
+          "awslogs-region": "us-west-2",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "stopTimeout": 30
+    }
+  ]
+}
