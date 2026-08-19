@@ -16,7 +16,7 @@ permissions:
 
 env:
   AWS_REGION: us-west-2
-  ECS_CLUSTER: college-os-qa
+  ECS_CLUSTER: caldiy
   ROLE: arn:aws:iam::786016560200:role/github-actions-caldiy-deploy
 
 jobs:
